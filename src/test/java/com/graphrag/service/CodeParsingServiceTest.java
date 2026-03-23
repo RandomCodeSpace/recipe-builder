@@ -197,6 +197,86 @@ class CodeParsingServiceTest {
         assertThat(hasRel(result, "app.py", "IMPORTS", "os")).isTrue();
     }
 
+    // ── Markdown tests ────────────────────────────────────────────────────────
+
+    @Test
+    void parseMarkdownExtractsHeadings() {
+        String md = """
+                # Title
+                ## Section One
+                ### Subsection
+                ## Section Two
+                """;
+
+        ExtractionResult result = service.parseCode(md, "doc.md");
+
+        assertThat(entityNames(result)).contains("Title", "Section One", "Subsection", "Section Two");
+        assertThat(result.entities()).hasSize(4);
+        assertThat(hasRel(result, "Title", "CONTAINS", "Section One")).isTrue();
+        assertThat(hasRel(result, "Section One", "CONTAINS", "Subsection")).isTrue();
+        assertThat(hasRel(result, "Title", "CONTAINS", "Section Two")).isTrue();
+    }
+
+    @Test
+    void parseMarkdownExtractsLinks() {
+        String md = """
+                # API Guide
+                See [documentation](https://docs.example.com) for details.
+                """;
+
+        ExtractionResult result = service.parseCode(md, "api.md");
+
+        assertThat(hasRel(result, "API Guide", "LINKS_TO", "https://docs.example.com")).isTrue();
+    }
+
+    @Test
+    void parseEmptyMarkdown() {
+        ExtractionResult result = service.parseCode("", "empty.md");
+
+        assertThat(result.entities()).isEmpty();
+        assertThat(result.relationships()).isEmpty();
+    }
+
+    // ── JSON tests ────────────────────────────────────────────────────────────
+
+    @Test
+    void parseJsonExtractsTopLevelKeys() {
+        String json = """
+                {"name": "GraphRAG", "version": "1.0", "config": {"port": 8080, "host": "localhost"}}
+                """;
+
+        ExtractionResult result = service.parseCode(json, "settings.json");
+
+        assertThat(entityNames(result)).contains("name", "version", "config");
+        assertThat(entityNames(result)).contains("config.port", "config.host");
+    }
+
+    @Test
+    void parseInvalidJson() {
+        ExtractionResult result = service.parseCode("{invalid json!!!", "bad.json");
+
+        assertThat(result.entities()).isEmpty();
+        assertThat(result.relationships()).isEmpty();
+    }
+
+    // ── YAML tests ────────────────────────────────────────────────────────────
+
+    @Test
+    void parseYamlExtractsStructure() {
+        String yaml = """
+                server:
+                  port: 8080
+                  host: localhost
+                database:
+                  url: jdbc:h2:file:./data
+                """;
+
+        ExtractionResult result = service.parseCode(yaml, "application.yaml");
+
+        assertThat(entityNames(result)).contains("server", "database");
+        assertThat(entityNames(result)).contains("server.port", "server.host", "database.url");
+    }
+
     // ── JavaScript tests ──────────────────────────────────────────────────────
 
     @Test

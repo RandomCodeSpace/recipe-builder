@@ -1,5 +1,7 @@
 package com.graphrag.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.*;
@@ -10,7 +12,9 @@ import com.graphrag.model.RelationshipInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.yaml.snakeyaml.Yaml;
 
+import java.io.StringReader;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,6 +34,9 @@ public class CodeParsingService {
                 case "java" -> parseJava(content, filename);
                 case "py" -> parsePython(content, filename);
                 case "js", "ts", "jsx", "tsx" -> parseJavaScript(content, filename);
+                case "md" -> parseMarkdown(content, filename);
+                case "json" -> parseJson(content, filename);
+                case "yaml", "yml" -> parseYaml(content, filename);
                 default -> new ExtractionResult(List.of(), List.of());
             };
         } catch (Exception e) {
@@ -204,6 +211,131 @@ public class CodeParsingService {
         }
 
         return new ExtractionResult(entities, relationships);
+    }
+
+    // Markdown patterns
+    private static final Pattern MD_HEADING = Pattern.compile("^(#{1,6})\\s+(.+)$", Pattern.MULTILINE);
+    private static final Pattern MD_LINK = Pattern.compile("\\[([^\\]]+)\\]\\(([^)]+)\\)");
+
+    private ExtractionResult parseMarkdown(String content, String filename) {
+        List<EntityInfo> entities = new ArrayList<>();
+        List<RelationshipInfo> relationships = new ArrayList<>();
+
+        // Track heading stack: index = heading level (1-6), value = heading name
+        String[] headingStack = new String[7]; // index 1..6
+
+        Matcher headingMatcher = MD_HEADING.matcher(content);
+        // We need to process line by line to associate links with sections
+        // Split into lines and process
+        String[] lines = content.split("\n", -1);
+        String currentSection = null;
+
+        for (String line : lines) {
+            Matcher hm = MD_HEADING.matcher(line);
+            if (hm.find()) {
+                int level = hm.group(1).length();
+                String name = hm.group(2).trim();
+                entities.add(new EntityInfo(name, "section", 1.0));
+
+                // Find nearest parent heading at a lower level
+                for (int parentLevel = level - 1; parentLevel >= 1; parentLevel--) {
+                    if (headingStack[parentLevel] != null) {
+                        relationships.add(new RelationshipInfo(headingStack[parentLevel], "CONTAINS", name, 1.0));
+                        break;
+                    }
+                }
+
+                // Update stack: clear all levels >= current
+                for (int i = level; i <= 6; i++) {
+                    headingStack[i] = null;
+                }
+                headingStack[level] = name;
+                currentSection = name;
+            } else if (currentSection != null) {
+                // Check for links in this line
+                Matcher lm = MD_LINK.matcher(line);
+                while (lm.find()) {
+                    String url = lm.group(2);
+                    relationships.add(new RelationshipInfo(currentSection, "LINKS_TO", url, 1.0));
+                }
+            }
+        }
+
+        return new ExtractionResult(entities, relationships);
+    }
+
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+
+    private ExtractionResult parseJson(String content, String filename) {
+        List<EntityInfo> entities = new ArrayList<>();
+        List<RelationshipInfo> relationships = new ArrayList<>();
+
+        try {
+            JsonNode root = JSON_MAPPER.readTree(content);
+            walkJsonNode(root, null, 0, entities, relationships);
+        } catch (Exception e) {
+            log.warn("JSON parsing failed for {}: {}", filename, e.getMessage());
+        }
+
+        return new ExtractionResult(entities, relationships);
+    }
+
+    private void walkJsonNode(JsonNode node, String parentKey, int depth,
+                              List<EntityInfo> entities, List<RelationshipInfo> relationships) {
+        if (depth > 2) return;
+
+        if (node.isObject()) {
+            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> entry = fields.next();
+                String key = parentKey != null ? parentKey + "." + entry.getKey() : entry.getKey();
+                entities.add(new EntityInfo(key, "key", 1.0));
+                if (parentKey != null) {
+                    relationships.add(new RelationshipInfo(parentKey, "HAS_PROPERTY", key, 1.0));
+                }
+                walkJsonNode(entry.getValue(), key, depth + 1, entities, relationships);
+            }
+        } else if (node.isArray() && parentKey != null) {
+            String elementDesc = "element[" + node.size() + "]";
+            relationships.add(new RelationshipInfo(parentKey, "HAS_ELEMENT", elementDesc, 1.0));
+        }
+    }
+
+    private ExtractionResult parseYaml(String content, String filename) {
+        List<EntityInfo> entities = new ArrayList<>();
+        List<RelationshipInfo> relationships = new ArrayList<>();
+
+        try {
+            Yaml yaml = new Yaml();
+            Object parsed = yaml.load(content);
+            if (parsed instanceof Map<?, ?> map) {
+                walkYamlMap(map, null, 0, entities, relationships);
+            }
+        } catch (Exception e) {
+            log.warn("YAML parsing failed for {}: {}", filename, e.getMessage());
+        }
+
+        return new ExtractionResult(entities, relationships);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void walkYamlMap(Map<?, ?> map, String parentKey, int depth,
+                              List<EntityInfo> entities, List<RelationshipInfo> relationships) {
+        if (depth > 2) return;
+
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            String key = parentKey != null ? parentKey + "." + entry.getKey() : String.valueOf(entry.getKey());
+            entities.add(new EntityInfo(key, "key", 1.0));
+            if (parentKey != null) {
+                relationships.add(new RelationshipInfo(parentKey, "HAS_PROPERTY", key, 1.0));
+            }
+            Object value = entry.getValue();
+            if (value instanceof Map<?, ?> nestedMap) {
+                walkYamlMap(nestedMap, key, depth + 1, entities, relationships);
+            } else if (value instanceof List<?> list && parentKey != null) {
+                relationships.add(new RelationshipInfo(key, "HAS_ELEMENT", "element[" + list.size() + "]", 1.0));
+            }
+        }
     }
 
     private String getExtension(String filename) {
