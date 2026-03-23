@@ -58,6 +58,7 @@ public class GraphGenerationService {
                 new ExtractionValidator(), 0.6, 2);
     }
 
+    @Autowired
     public GraphGenerationService(
             GraphRepository graphRepo,
             VectorRepository vectorRepo,
