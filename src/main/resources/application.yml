@@ -23,5 +23,7 @@ graphrag:
     persistence-path: ./data/vector-store.json
   graph:
     persistence-path: ./data/graph.json
+  persistence:
+    interval-ms: 300000
   trace:
     similarity-threshold: 0.7
