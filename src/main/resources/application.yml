@@ -1,4 +1,5 @@
 graphrag:
+  version: v1
   llm:
     provider: ollama
     ollama:
@@ -20,12 +21,26 @@ graphrag:
   ingest:
     max-text-length: 100000
   vector-store:
-    persistence-path: ./data/vector-store.json
+    persistence-path: ./data/versions/${graphrag.version}/vector-store.json
   graph:
-    persistence-path: ./data/graph.json
+    persistence-path: ./data/versions/${graphrag.version}/graph.json
   persistence:
     interval-ms: 300000
   dedup:
     similarity-threshold: 0.85
   trace:
     similarity-threshold: 0.7
+
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/graphrag-db
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.H2Dialect
+  h2:
+    console:
+      enabled: true

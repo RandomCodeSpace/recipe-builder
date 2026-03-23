@@ -1,17 +1,23 @@
 package com.graphrag.service;
 
+import com.graphrag.config.GraphRagProperties;
+import com.graphrag.entity.RecipeEntity;
+import com.graphrag.jpa.RecipeJpaRepository;
 import com.graphrag.model.ExecutionTrace;
 import com.graphrag.model.TraceStep;
 import com.graphrag.repository.GraphRepository;
 import com.graphrag.repository.VectorRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.*;
 
 @Service
@@ -23,6 +29,17 @@ public class ExecutionTraceService {
     private final VectorRepository vectorRepo;
     private final EmbeddingModel embeddingModel;
     private final double similarityThreshold;
+
+    @Autowired(required = false)
+    private RecipeJpaRepository recipeRepo;
+
+    @Autowired(required = false)
+    private GraphRagProperties graphRagProperties;
+
+    @Autowired(required = false)
+    private AuditService auditService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public ExecutionTraceService(
             GraphRepository graphRepo,
@@ -77,6 +94,32 @@ public class ExecutionTraceService {
             } catch (Exception e) {
                 log.warn("Entity linking failed for step {}: {}", stepId, e.getMessage());
             }
+        }
+
+        // Persist recipe to H2 if repo is available
+        if (recipeRepo != null) {
+            try {
+                RecipeEntity recipe = new RecipeEntity();
+                recipe.setTraceId(trace.traceId());
+                recipe.setTaskDescription(trace.taskDescription());
+                recipe.setAgentPersona(trace.agentPersona());
+                recipe.setSuccessful(trace.successful());
+                recipe.setSourceVersion(graphRagProperties != null ? graphRagProperties.version() : "unknown");
+                recipe.setCreatedAt(Instant.now());
+                try {
+                    recipe.setStepsJson(objectMapper.writeValueAsString(trace.steps()));
+                } catch (Exception e) {
+                    recipe.setStepsJson("[]");
+                }
+                recipeRepo.save(recipe);
+            } catch (Exception e) {
+                log.warn("Failed to persist recipe to H2: {}", e.getMessage());
+            }
+        }
+
+        // Audit logging
+        if (auditService != null) {
+            auditService.log("RECORD_TRACE", "traceId=" + trace.traceId());
         }
 
         return Map.of(

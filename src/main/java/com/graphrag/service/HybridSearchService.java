@@ -5,6 +5,7 @@ import com.graphrag.repository.GraphRepository;
 import com.graphrag.repository.VectorRepository;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.model.embedding.EmbeddingModel;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -16,6 +17,9 @@ public class HybridSearchService {
     private final GraphRepository graphRepo;
     private final VectorRepository vectorRepo;
     private final EmbeddingModel embeddingModel;
+
+    @Autowired(required = false)
+    private AuditService auditService;
 
     public HybridSearchService(GraphRepository graphRepo,
                                 VectorRepository vectorRepo,
@@ -40,6 +44,10 @@ public class HybridSearchService {
         String textContext = vectorResults.stream()
                 .map(VectorRepository.ChunkSearchResult::content)
                 .collect(Collectors.joining("\n\n"));
+
+        if (auditService != null) {
+            auditService.log("SEARCH", "query=" + query);
+        }
 
         SearchResult graphResult = graphRepo.getSubgraphByChunkIds(chunkIds);
 

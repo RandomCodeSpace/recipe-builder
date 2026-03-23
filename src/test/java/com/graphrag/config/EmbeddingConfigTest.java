@@ -8,6 +8,7 @@ class EmbeddingConfigTest {
     @Test
     void throwsForUnknownProvider() {
         var props = new GraphRagProperties(
+            "v1",
             new GraphRagProperties.LlmProperties("ollama",
                 new GraphRagProperties.OllamaProperties("http://localhost:11434", "llama3.1"),
                 new GraphRagProperties.AzureOpenAiProperties("endpoint", "key", "deploy")),

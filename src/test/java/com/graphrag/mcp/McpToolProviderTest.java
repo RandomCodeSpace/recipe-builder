@@ -5,6 +5,7 @@ import com.graphrag.repository.GraphRepository;
 import com.graphrag.repository.VectorRepository;
 import com.graphrag.service.*;
 import com.graphrag.service.EntityNormalizer;
+import com.graphrag.service.VersionService;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -48,8 +49,9 @@ class McpToolProviderTest {
         var searchService = new HybridSearchService(graphRepo, vectorRepo, embeddingModel);
         var traversalService = new GraphTraversalService(graphRepo);
         var traceService = new ExecutionTraceService(graphRepo, vectorRepo, embeddingModel, 0.7);
+        var versionService = mock(VersionService.class);
 
-        provider = new McpToolProvider(genService, searchService, traversalService, traceService, new ObjectMapper());
+        provider = new McpToolProvider(genService, searchService, traversalService, traceService, versionService, new ObjectMapper());
     }
 
     @AfterEach
@@ -163,7 +165,8 @@ class McpToolProviderTest {
         var searchService = new HybridSearchService(graphRepoLocal, vectorRepo, embeddingModel);
         var traversalService = new GraphTraversalService(graphRepoLocal);
         var traceService = new ExecutionTraceService(graphRepoLocal, vectorRepo, embeddingModel, 0.7);
-        var smallProvider = new McpToolProvider(genService, searchService, traversalService, traceService, new ObjectMapper());
+        var versionServiceLocal = mock(VersionService.class);
+        var smallProvider = new McpToolProvider(genService, searchService, traversalService, traceService, versionServiceLocal, new ObjectMapper());
 
         Map<String, Object> args = new HashMap<>();
         args.put("text", "This is way too long for the small limit");

@@ -4,6 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "graphrag")
 public record GraphRagProperties(
+    String version,
     LlmProperties llm,
     EmbeddingProperties embedding,
     IngestProperties ingest,

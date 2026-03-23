@@ -42,7 +42,7 @@ public class McpServerConfig {
                                         McpToolProvider toolProvider) {
         return McpServer.sync(transportProvider)
                 .serverInfo("graphrag-mcp-server", "1.0.0")
-                .instructions("Hybrid GraphRAG memory server with 4 tools: hybrid_graph_weave_search, creative_graph_traversal, record_execution_trace, ingest_text")
+                .instructions("Hybrid GraphRAG memory server with 6 tools: hybrid_graph_weave_search, creative_graph_traversal, record_execution_trace, ingest_text, create_version_snapshot, list_versions")
                 .tools(
                         new McpServerFeatures.SyncToolSpecification(
                                 toolProvider.hybridSearchTool(),
@@ -55,7 +55,13 @@ public class McpServerConfig {
                                 (exchange, args) -> toolProvider.handleRecordTrace(args)),
                         new McpServerFeatures.SyncToolSpecification(
                                 toolProvider.ingestTextTool(),
-                                (exchange, args) -> toolProvider.handleIngestText(args))
+                                (exchange, args) -> toolProvider.handleIngestText(args)),
+                        new McpServerFeatures.SyncToolSpecification(
+                                toolProvider.createVersionSnapshotTool(),
+                                (exchange, args) -> toolProvider.handleCreateVersionSnapshot(args)),
+                        new McpServerFeatures.SyncToolSpecification(
+                                toolProvider.listVersionsTool(),
+                                (exchange, args) -> toolProvider.handleListVersions(args))
                 )
                 .build();
     }

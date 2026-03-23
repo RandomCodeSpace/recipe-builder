@@ -11,6 +11,7 @@ import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +28,9 @@ public class GraphGenerationService {
     private final TextChunker textChunker;
     private final EntityRelationshipExtractor extractor;
     private final int maxTextLength;
+
+    @Autowired(required = false)
+    private AuditService auditService;
 
     interface EntityRelationshipExtractor {
         @UserMessage("""
@@ -88,6 +92,10 @@ public class GraphGenerationService {
                     log.warn("LLM extraction failed for chunk {}: {}", chunk.chunkId(), e.getMessage());
                 }
             }
+        }
+
+        if (auditService != null) {
+            auditService.log("INGEST", "source=" + source);
         }
 
         return Map.of(

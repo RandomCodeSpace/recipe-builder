@@ -7,6 +7,7 @@ import com.graphrag.service.ExecutionTraceService;
 import com.graphrag.service.GraphGenerationService;
 import com.graphrag.service.GraphTraversalService;
 import com.graphrag.service.HybridSearchService;
+import com.graphrag.service.VersionService;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.JsonSchema;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
@@ -23,17 +24,20 @@ public class McpToolProvider {
     private final HybridSearchService hybridSearchService;
     private final GraphTraversalService graphTraversalService;
     private final ExecutionTraceService executionTraceService;
+    private final VersionService versionService;
     private final ObjectMapper objectMapper;
 
     public McpToolProvider(GraphGenerationService graphGenerationService,
                             HybridSearchService hybridSearchService,
                             GraphTraversalService graphTraversalService,
                             ExecutionTraceService executionTraceService,
+                            VersionService versionService,
                             ObjectMapper objectMapper) {
         this.graphGenerationService = graphGenerationService;
         this.hybridSearchService = hybridSearchService;
         this.graphTraversalService = graphTraversalService;
         this.executionTraceService = executionTraceService;
+        this.versionService = versionService;
         this.objectMapper = objectMapper;
     }
 
@@ -158,6 +162,52 @@ public class McpToolProvider {
                         List.of(new TextContent((String) result.get("error"))), true);
             }
             String json = objectMapper.writeValueAsString(result);
+            return new CallToolResult(List.of(new TextContent(json)), false);
+        } catch (Exception e) {
+            return new CallToolResult(List.of(new TextContent("Error: " + e.getMessage())), true);
+        }
+    }
+
+    public Tool createVersionSnapshotTool() {
+        return new Tool(
+                "create_version_snapshot",
+                "Creates a versioned snapshot of the current graph and vector store data.",
+                new JsonSchema("object",
+                        Map.of("version_name", Map.of("type", "string", "description", "Name for the version snapshot (e.g. v2)"),
+                                "description", Map.of("type", "string", "description", "Description of what changed in this version")),
+                        List.of("version_name", "description"),
+                        null, null, null));
+    }
+
+    public CallToolResult handleCreateVersionSnapshot(Map<String, Object> args) {
+        try {
+            String versionName = (String) args.get("version_name");
+            String description = (String) args.get("description");
+            var result = versionService.createSnapshot(versionName, description);
+            if (result.containsKey("error")) {
+                return new CallToolResult(List.of(new TextContent((String) result.get("error"))), true);
+            }
+            String json = objectMapper.writeValueAsString(result);
+            return new CallToolResult(List.of(new TextContent(json)), false);
+        } catch (Exception e) {
+            return new CallToolResult(List.of(new TextContent("Error: " + e.getMessage())), true);
+        }
+    }
+
+    public Tool listVersionsTool() {
+        return new Tool(
+                "list_versions",
+                "Lists all available graph/vector store versions.",
+                new JsonSchema("object",
+                        Map.of(),
+                        List.of(),
+                        null, null, null));
+    }
+
+    public CallToolResult handleListVersions(Map<String, Object> args) {
+        try {
+            var versions = versionService.listVersions();
+            String json = objectMapper.writeValueAsString(Map.of("versions", versions));
             return new CallToolResult(List.of(new TextContent(json)), false);
         } catch (Exception e) {
             return new CallToolResult(List.of(new TextContent("Error: " + e.getMessage())), true);
