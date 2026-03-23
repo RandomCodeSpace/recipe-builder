@@ -1,0 +1,27 @@
+graphrag:
+  llm:
+    provider: ollama
+    ollama:
+      base-url: http://localhost:11434
+      model-name: llama3.1
+    azure-openai:
+      endpoint: ${AZURE_OPENAI_ENDPOINT:}
+      api-key: ${AZURE_OPENAI_API_KEY:}
+      deployment-name: ${AZURE_OPENAI_DEPLOYMENT:gpt-4o-mini}
+  embedding:
+    provider: ollama
+    ollama:
+      base-url: http://localhost:11434
+      model-name: nomic-embed-text
+    azure-openai:
+      endpoint: ${AZURE_OPENAI_ENDPOINT:}
+      api-key: ${AZURE_OPENAI_API_KEY:}
+      deployment-name: ${AZURE_OPENAI_EMBEDDING_DEPLOYMENT:text-embedding-3-small}
+  ingest:
+    max-text-length: 100000
+  vector-store:
+    persistence-path: ./data/vector-store.json
+  graph:
+    persistence-path: ./data/graph.json
+  trace:
+    similarity-threshold: 0.7
