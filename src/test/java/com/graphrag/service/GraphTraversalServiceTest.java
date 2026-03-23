@@ -77,4 +77,37 @@ class GraphTraversalServiceTest {
         TraversalResult result = service.traverse(List.of("A", "D"), "BFS", "NONEXISTENT");
         assertThat(result.warnings()).anyMatch(w -> w.contains("NONEXISTENT"));
     }
+
+    @Test
+    void singleKeywordReturnsEmptyResult() {
+        // Need at least 2 resolved vertices for pairwise path computation
+        TraversalResult result = service.traverse(List.of("A"), "BFS", null);
+        assertThat(result.paths()).isEmpty();
+    }
+
+    @Test
+    void allKeywordsUnknownReturnsEmptyWithWarnings() {
+        TraversalResult result = service.traverse(List.of("UNKNOWN1", "UNKNOWN2"), "BFS", null);
+        assertThat(result.paths()).isEmpty();
+        assertThat(result.warnings()).hasSize(2);
+        assertThat(result.warnings()).anyMatch(w -> w.contains("UNKNOWN1"));
+        assertThat(result.warnings()).anyMatch(w -> w.contains("UNKNOWN2"));
+    }
+
+    @Test
+    void emptySemanticStopIsIgnored() {
+        // Blank semantic_stop should be treated as no constraint
+        TraversalResult result = service.traverse(List.of("A", "D"), "BFS", "");
+        assertThat(result.paths()).isNotEmpty();
+        // No warning about empty semantic stop
+        assertThat(result.warnings()).isEmpty();
+    }
+
+    @Test
+    void multipleKeywordsComputesPairwisePaths() {
+        // A, B, C as keywords => 3 pairs: A-B, A-C, B-C
+        TraversalResult result = service.traverse(List.of("A", "B", "C"), "BFS", null);
+        // At least some paths should be found (A-B is directly connected)
+        assertThat(result.paths()).isNotEmpty();
+    }
 }

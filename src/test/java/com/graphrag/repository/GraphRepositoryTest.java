@@ -89,4 +89,98 @@ class GraphRepositoryTest {
         var vertices = repo.findVerticesByName("spring");
         assertThat(vertices).isNotEmpty();
     }
+
+    @Test
+    void addRelationshipIgnoresMissingSource() {
+        // Only target entity exists — no source
+        repo.addEntity("Spring", "framework", "codebase");
+        repo.addRelationship("NonExistentSource", "Spring", "powers", "chunk-1");
+        assertThat(g.E().hasLabel("RELATES_TO").count().next()).isEqualTo(0L);
+    }
+
+    @Test
+    void addRelationshipIgnoresMissingTarget() {
+        // Only source entity exists — no target
+        repo.addEntity("Java", "technology", "codebase");
+        repo.addRelationship("Java", "NonExistentTarget", "powers", "chunk-1");
+        assertThat(g.E().hasLabel("RELATES_TO").count().next()).isEqualTo(0L);
+    }
+
+    @Test
+    void linkEntityToChunkIgnoresMissingEntity() {
+        // Chunk exists, entity does not
+        repo.addTextChunkNode("chunk-1", "some text", "file.java", "codebase");
+        repo.linkEntityToChunk("NonExistentEntity", "chunk-1");
+        assertThat(g.E().hasLabel("MENTIONED_IN").count().next()).isEqualTo(0L);
+    }
+
+    @Test
+    void linkEntityToChunkIgnoresMissingChunk() {
+        // Entity exists, chunk does not
+        repo.addEntity("Java", "technology", "codebase");
+        repo.linkEntityToChunk("Java", "nonexistent-chunk");
+        assertThat(g.E().hasLabel("MENTIONED_IN").count().next()).isEqualTo(0L);
+    }
+
+    @Test
+    void addExecutionTraceVertexCreatesVertex() {
+        var v = repo.addExecutionTraceVertex("t-1", "task desc", "Planner", true);
+        assertThat(v).isNotNull();
+        assertThat(g.V().hasLabel("ExecutionTrace").has("traceId", "t-1").count().next()).isEqualTo(1L);
+        assertThat(v.property("taskDescription").value()).isEqualTo("task desc");
+        assertThat(v.property("agentPersona").value()).isEqualTo("Planner");
+        assertThat(v.property("successful").value()).isEqualTo(true);
+    }
+
+    @Test
+    void addTraceStepVertexCreatesVertex() {
+        var v = repo.addTraceStepVertex("step-1", "search", "searched for X", 1);
+        assertThat(v).isNotNull();
+        assertThat(g.V().hasLabel("TraceStep").has("stepId", "step-1").count().next()).isEqualTo(1L);
+        assertThat(v.property("toolName").value()).isEqualTo("search");
+        assertThat(v.property("reasoning").value()).isEqualTo("searched for X");
+        assertThat(v.property("order").value()).isEqualTo(1);
+    }
+
+    @Test
+    void addEdgeCreatesEdge() {
+        repo.addEntity("Source", "concept", "test");
+        repo.addEntity("Target", "concept", "test");
+        var source = g.V().hasLabel("Entity").has("name", "Source").next();
+        var target = g.V().hasLabel("Entity").has("name", "Target").next();
+        repo.addEdge(source, target, "CUSTOM_EDGE");
+        assertThat(g.E().hasLabel("CUSTOM_EDGE").count().next()).isEqualTo(1L);
+    }
+
+    @Test
+    void vertexToMapReturnsCorrectFields() {
+        repo.addEntity("TestEntity", "technology", "codebase");
+        var v = g.V().hasLabel("Entity").has("name", "TestEntity").next();
+        Map<String, Object> map = GraphRepository.vertexToMap(v);
+        assertThat(map).containsKey("id");
+        assertThat(map).containsKey("label");
+        assertThat(map.get("label")).isEqualTo("Entity");
+        assertThat(map.get("name")).isEqualTo("TestEntity");
+    }
+
+    @Test
+    void edgeToMapReturnsCorrectFields() {
+        repo.addEntity("Java", "technology", "codebase");
+        repo.addEntity("Spring", "framework", "codebase");
+        repo.addRelationship("Java", "Spring", "powers", "chunk-1");
+        var e = g.E().hasLabel("RELATES_TO").next();
+        Map<String, Object> map = GraphRepository.edgeToMap(e);
+        assertThat(map).containsKey("id");
+        assertThat(map).containsKey("label");
+        assertThat(map).containsKey("source");
+        assertThat(map).containsKey("target");
+        assertThat(map.get("label")).isEqualTo("RELATES_TO");
+    }
+
+    @Test
+    void getSubgraphByChunkIdsEmptyListReturnsEmpty() {
+        var result = repo.getSubgraphByChunkIds(List.of());
+        assertThat(result.nodes()).isEmpty();
+        assertThat(result.edges()).isEmpty();
+    }
 }

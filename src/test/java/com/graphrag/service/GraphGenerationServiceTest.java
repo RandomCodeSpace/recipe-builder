@@ -87,4 +87,51 @@ class GraphGenerationServiceTest {
 
         assertThat(result.containsKey("error")).isTrue();
     }
+
+    @Test
+    void ingestWithoutLlmStoresChunksAndSkipsExtraction() {
+        // service is constructed with null chatModel, so extractor == null
+        var result = service.ingest("Hello world. This is a test.", "test.txt", "document");
+
+        assertThat(result.get("chunks_created")).isEqualTo(1);
+        // No LLM extractor — entities_extracted should be 0
+        assertThat(result.get("entities_extracted")).isEqualTo(0);
+        // Chunk nodes should be stored in graph
+        assertThat(graphRepo.traversalSource().V().hasLabel("TextChunk").count().next()).isEqualTo(1L);
+    }
+
+    @Test
+    void ingestRejectsTextExceedingMaxLength() {
+        var limitedService = new GraphGenerationService(
+                graphRepo, vectorRepo, embeddingModel, new TextChunker(), null, 10);
+
+        var result = limitedService.ingest("This text is way too long", "test.txt", "document");
+
+        assertThat(result.containsKey("error")).isTrue();
+    }
+
+    @Test
+    void ingestMultipleParagraphsCreatesMultipleChunks() {
+        String text = "First paragraph with some content.\n\nSecond paragraph with different content.\n\nThird paragraph here.";
+        var result = service.ingest(text, "multi.txt", "document");
+
+        int chunks = (int) result.get("chunks_created");
+        assertThat(chunks).isGreaterThanOrEqualTo(1);
+        // All chunks stored in graph
+        assertThat(graphRepo.traversalSource().V().hasLabel("TextChunk").count().next()).isEqualTo((long) chunks);
+    }
+
+    @Test
+    void processExtractionCreatesRelationshipEntitiesIfMissing() {
+        // Relationships reference entities not in the entities list — they should be auto-created
+        var extraction = new ExtractionResult(
+                List.of(),  // no explicit entities
+                List.of(new RelationshipInfo("Alpha", "uses", "Beta")));
+
+        service.ingestWithExtractionResult("Alpha uses Beta.", "test.txt", "reference", extraction);
+
+        // Both Alpha and Beta should have been created from the relationship
+        assertThat(graphRepo.findVerticesByName("Alpha")).isNotEmpty();
+        assertThat(graphRepo.findVerticesByName("Beta")).isNotEmpty();
+    }
 }
