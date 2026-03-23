@@ -4,7 +4,7 @@ graphrag:
     provider: ollama  # Options: ollama, ollama-cloud, azure-openai
     ollama:
       base-url: https://ollama.com  # For ollama-cloud use: https://ollama.com
-      model-name: gemma3:27b-cloud
+      model-name: gemma3:4b-cloud
       api-key: ${OLLAMA_API_KEY:}  # Required for ollama-cloud only
     azure-openai:
       endpoint: ${AZURE_OPENAI_ENDPOINT:}

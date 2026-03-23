@@ -53,6 +53,9 @@ public class GraphGenerationService {
     @Autowired(required = false)
     private AuditService auditService;
 
+    @Autowired(required = false)
+    private CodeParsingService codeParsingService;
+
     public GraphGenerationService(
             GraphRepository graphRepo,
             VectorRepository vectorRepo,
@@ -106,8 +109,15 @@ public class GraphGenerationService {
             // Store text chunk node in graph
             graphRepo.addTextChunkNode(chunk.chunkId(), chunk.content(), source, domain);
 
-            // Extract entities via LLM
-            if (chatModel != null) {
+            // Extract entities via AST (codebase domain) or LLM (other domains)
+            if ("codebase".equals(domain) && codeParsingService != null) {
+                // AST-based extraction for code — no LLM needed
+                ExtractionResult result = codeParsingService.parseCode(chunk.content(), source);
+                result = validator.filter(result, confidenceThreshold);
+                entitiesCount += processExtraction(result, chunk.chunkId(), domain);
+                relationshipsCount += result.relationships().size();
+            } else if (chatModel != null) {
+                // LLM extraction for document/recipe/reference
                 ExtractionResult result = extractWithRetry(chunk.content(), chunk.chunkId());
                 if (result != null) {
                     result = validator.filter(result, confidenceThreshold);
