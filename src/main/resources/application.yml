@@ -1,19 +1,21 @@
 graphrag:
   version: v1
   llm:
-    provider: ollama
+    provider: ollama  # Options: ollama, ollama-cloud, azure-openai
     ollama:
-      base-url: http://localhost:11434
+      base-url: http://localhost:11434  # For ollama-cloud use: https://ollama.com
       model-name: llama3.1
+      api-key: ${OLLAMA_API_KEY:}  # Required for ollama-cloud only
     azure-openai:
       endpoint: ${AZURE_OPENAI_ENDPOINT:}
       api-key: ${AZURE_OPENAI_API_KEY:}
       deployment-name: ${AZURE_OPENAI_DEPLOYMENT:gpt-4o-mini}
   embedding:
-    provider: ollama
+    provider: ollama  # Options: ollama, ollama-cloud, azure-openai
     ollama:
-      base-url: http://localhost:11434
+      base-url: http://localhost:11434  # For ollama-cloud use: https://ollama.com
       model-name: nomic-embed-text
+      api-key: ${OLLAMA_API_KEY:}  # Required for ollama-cloud only
     azure-openai:
       endpoint: ${AZURE_OPENAI_ENDPOINT:}
       api-key: ${AZURE_OPENAI_API_KEY:}

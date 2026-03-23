@@ -11,10 +11,10 @@ class LlmConfigTest {
         var props = new GraphRagProperties(
             "v1",
             new GraphRagProperties.LlmProperties("unknown",
-                new GraphRagProperties.OllamaProperties("http://localhost:11434", "llama3.1"),
+                new GraphRagProperties.OllamaProperties("http://localhost:11434", "llama3.1", null),
                 new GraphRagProperties.AzureOpenAiProperties("endpoint", "key", "deploy")),
             new GraphRagProperties.EmbeddingProperties("ollama",
-                new GraphRagProperties.OllamaProperties("http://localhost:11434", "nomic"),
+                new GraphRagProperties.OllamaProperties("http://localhost:11434", "nomic", null),
                 new GraphRagProperties.AzureOpenAiProperties("endpoint", "key", "deploy")),
             new GraphRagProperties.IngestProperties(100000),
             new GraphRagProperties.VectorStoreProperties("./data/v.json"),

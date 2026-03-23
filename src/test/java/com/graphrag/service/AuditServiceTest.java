@@ -45,10 +45,10 @@ class AuditServiceTest {
         GraphRagProperties props = new GraphRagProperties(
             "test-v1",
             new GraphRagProperties.LlmProperties("ollama",
-                new GraphRagProperties.OllamaProperties("http://localhost:11434", "llama3.1"),
+                new GraphRagProperties.OllamaProperties("http://localhost:11434", "llama3.1", null),
                 new GraphRagProperties.AzureOpenAiProperties("", "", "gpt-4o-mini")),
             new GraphRagProperties.EmbeddingProperties("ollama",
-                new GraphRagProperties.OllamaProperties("http://localhost:11434", "nomic-embed-text"),
+                new GraphRagProperties.OllamaProperties("http://localhost:11434", "nomic-embed-text", null),
                 new GraphRagProperties.AzureOpenAiProperties("", "", "text-embedding-3-small")),
             new GraphRagProperties.IngestProperties(100000),
             new GraphRagProperties.VectorStoreProperties("./data/test/vector-store.json"),

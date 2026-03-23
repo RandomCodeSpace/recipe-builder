@@ -37,10 +37,10 @@ class VersionServiceTest {
         props = new GraphRagProperties(
             "v1",
             new GraphRagProperties.LlmProperties("ollama",
-                new GraphRagProperties.OllamaProperties("http://localhost:11434", "llama3.1"),
+                new GraphRagProperties.OllamaProperties("http://localhost:11434", "llama3.1", null),
                 new GraphRagProperties.AzureOpenAiProperties("", "", "gpt-4o-mini")),
             new GraphRagProperties.EmbeddingProperties("ollama",
-                new GraphRagProperties.OllamaProperties("http://localhost:11434", "nomic"),
+                new GraphRagProperties.OllamaProperties("http://localhost:11434", "nomic", null),
                 new GraphRagProperties.AzureOpenAiProperties("", "", "embed")),
             new GraphRagProperties.IngestProperties(100000),
             new GraphRagProperties.VectorStoreProperties("./data/v1/vector-store.json"),

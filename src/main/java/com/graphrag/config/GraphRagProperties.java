@@ -14,7 +14,7 @@ public record GraphRagProperties(
 ) {
     public record LlmProperties(String provider, OllamaProperties ollama, AzureOpenAiProperties azureOpenai) {}
     public record EmbeddingProperties(String provider, OllamaProperties ollama, AzureOpenAiProperties azureOpenai) {}
-    public record OllamaProperties(String baseUrl, String modelName) {}
+    public record OllamaProperties(String baseUrl, String modelName, String apiKey) {}
     public record AzureOpenAiProperties(String endpoint, String apiKey, String deploymentName) {}
     public record IngestProperties(int maxTextLength) {}
     public record VectorStoreProperties(String persistencePath) {}
