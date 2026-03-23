@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GraphRAG // Simulation Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0b0f;
+  --bg-card: #12141c;
+  --bg-input: #1a1d28;
+  --border: #2a2d3a;
+  --border-focus: #4af0c0;
+  --text: #c8ccd4;
+  --text-dim: #6b7080;
+  --text-bright: #eef0f6;
+  --accent: #4af0c0;
+  --accent-glow: rgba(74, 240, 192, 0.15);
+  --accent2: #f07a4a;
+  --accent3: #7a4af0;
+  --danger: #f04a6b;
+  --success: #4af06b;
+  --radius: 8px;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Outfit', sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--mono);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Background grid effect */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    linear-gradient(rgba(74, 240, 192, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74, 240, 192, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Header */
+.header {
+  position: relative;
+  z-index: 1;
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(180deg, rgba(74,240,192,0.04) 0%, transparent 100%);
+}
+
+.header h1 {
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: 22px;
+  color: var(--text-bright);
+  letter-spacing: -0.5px;
+}
+
+.header h1 span {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-weight: 300;
+  font-size: 14px;
+  margin-left: 12px;
+  opacity: 0.7;
+}
+
+.header .version-badge {
+  font-size: 11px;
+  padding: 4px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  color: var(--accent);
+  background: var(--accent-glow);
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Tabs */
+.tabs {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  padding: 0 32px;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.tab {
+  padding: 14px 24px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-dim);
+  cursor: pointer;
+  border: none;
+  background: none;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.tab:hover { color: var(--text); }
+
+.tab.active {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0; right: 0;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+}
+
+/* Main layout */
+.main {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  height: calc(100vh - 110px);
+}
+
+.panel {
+  padding: 24px 32px;
+  overflow-y: auto;
+}
+
+.panel-left {
+  border-right: 1px solid var(--border);
+}
+
+.panel-right {
+  background: rgba(18, 20, 28, 0.6);
+}
+
+/* Panel headers */
+.panel-header {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-header .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+/* Form elements */
+.field {
+  margin-bottom: 16px;
+}
+
+.field label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.field textarea,
+.field input,
+.field select {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-bright);
+  font-family: var(--mono);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.field textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.field textarea:focus,
+.field input:focus,
+.field select:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.field select {
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7080' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.row-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 20px rgba(74, 240, 192, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  border-color: var(--text-dim);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Loading spinner */
+.spinner {
+  display: none;
+  width: 14px; height: 14px;
+  border: 2px solid transparent;
+  border-top-color: var(--bg);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading .spinner { display: block; }
+.loading .btn-text { opacity: 0.6; }
+
+/* Results */
+.result-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.result-box.success { border-color: var(--success); }
+.result-box.error { border-color: var(--danger); color: var(--danger); }
+
+.result-text {
+  background: linear-gradient(135deg, rgba(74,240,192,0.05), rgba(122,74,240,0.05));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text-bright);
+}
+
+/* Graph canvas */
+#graphCanvas {
+  width: 100%;
+  height: 350px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-top: 16px;
+}
+
+/* Node colors */
+.graph-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.graph-legend .swatch {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* Version cards */
+.version-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.version-card {
+  padding: 12px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.version-card .v-name {
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.version-card .v-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Tab content */
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in { animation: fadeIn 0.3s ease-out; }
+
+/* Status bar */
+.status-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 28px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  font-size: 11px;
+  color: var(--text-dim);
+  gap: 20px;
+  z-index: 10;
+}
+
+.status-bar .status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}
+
+/* Toast notifications */
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-family: var(--mono);
+  z-index: 100;
+  animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+}
+
+.toast.success { background: var(--success); color: var(--bg); }
+.toast.error { background: var(--danger); color: #fff; }
+
+@keyframes slideIn {
+  from { transform: translateX(100px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes fadeOut {
+  to { opacity: 0; transform: translateY(-10px); }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>GraphRAG <span>// simulation console</span></h1>
+  <div class="version-badge" id="activeVersion">loading...</div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="ingest">Ingest</button>
+  <button class="tab" data-tab="search">Search</button>
+  <button class="tab" data-tab="traverse">Traverse</button>
+  <button class="tab" data-tab="trace">Trace</button>
+  <button class="tab" data-tab="versions">Versions</button>
+</div>
+
+<div class="main">
+  <!-- LEFT PANEL: Input -->
+  <div class="panel panel-left">
+
+    <!-- INGEST TAB -->
+    <div class="tab-content active" id="tab-ingest">
+      <div class="panel-header"><div class="dot"></div> Ingest Document</div>
+      <div class="field">
+        <label>Text Content</label>
+        <textarea id="ingest-text" placeholder="Paste document text here...
+
+Separate paragraphs with blank lines for chunking."></textarea>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Source</label>
+          <input type="text" id="ingest-source" placeholder="e.g. architecture.md">
+        </div>
+        <div class="field">
+          <label>Domain</label>
+          <select id="ingest-domain">
+            <option value="codebase">Codebase</option>
+            <option value="document" selected>Document</option>
+            <option value="recipe">Recipe</option>
+            <option value="reference">Reference</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="doIngest()">
+        <span class="spinner"></span>
+        <span class="btn-text">Ingest Text</span>
+      </button>
+    </div>
+
+    <!-- SEARCH TAB -->
+    <div class="tab-content" id="tab-search">
+      <div class="panel-header"><div class="dot"></div> Hybrid Graph Search</div>
+      <div class="field">
+        <label>Query</label>
+        <input type="text" id="search-query" placeholder="e.g. authentication flow">
+      </div>
+      <div class="field">
+        <label>Top K Results</label>
+        <input type="number" id="search-topk" value="5" min="1" max="20">
+      </div>
+      <button class="btn btn-primary" onclick="doSearch()">
+        <span class="spinner"></span>
+        <span class="btn-text">Search</span>
+      </button>
+    </div>
+
+    <!-- TRAVERSE TAB -->
+    <div class="tab-content" id="tab-traverse">
+      <div class="panel-header"><div class="dot"></div> Graph Traversal</div>
+      <div class="field">
+        <label>Keywords (comma-separated)</label>
+        <input type="text" id="traverse-keywords" placeholder="e.g. Java, Spring, REST">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Algorithm</label>
+          <select id="traverse-algo">
+            <option value="BFS">BFS (Breadth-First)</option>
+            <option value="DFS">DFS (Depth-First)</option>
+            <option value="SHORTEST_PATH" selected>Shortest Path</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Semantic Stop (optional)</label>
+          <input type="text" id="traverse-stop" placeholder="e.g. Controller">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="doTraverse()">
+        <span class="spinner"></span>
+        <span class="btn-text">Traverse</span>
+      </button>
+    </div>
+
+    <!-- TRACE TAB -->
+    <div class="tab-content" id="tab-trace">
+      <div class="panel-header"><div class="dot"></div> Record Execution Trace</div>
+      <div class="row">
+        <div class="field">
+          <label>Trace ID</label>
+          <input type="text" id="trace-id" placeholder="e.g. trace-001">
+        </div>
+        <div class="field">
+          <label>Agent Persona</label>
+          <input type="text" id="trace-persona" placeholder="e.g. Planner">
+        </div>
+      </div>
+      <div class="field">
+        <label>Task Description</label>
+        <input type="text" id="trace-task" placeholder="e.g. Analyzed codebase authentication">
+      </div>
+      <div class="field">
+        <label>Steps (JSON Array)</label>
+        <textarea id="trace-steps" placeholder='[
+  {"tool_name": "search", "reasoning": "Searched for auth patterns", "order": 1},
+  {"tool_name": "analyze", "reasoning": "Reviewed search results", "order": 2}
+]'></textarea>
+      </div>
+      <div class="field">
+        <label>Successful</label>
+        <select id="trace-success">
+          <option value="true">Yes</option>
+          <option value="false">No</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="doTrace()">
+        <span class="spinner"></span>
+        <span class="btn-text">Record Trace</span>
+      </button>
+    </div>
+
+    <!-- VERSIONS TAB -->
+    <div class="tab-content" id="tab-versions">
+      <div class="panel-header"><div class="dot"></div> Version Management</div>
+      <div class="field">
+        <label>New Version Name</label>
+        <input type="text" id="version-name" placeholder="e.g. v2">
+      </div>
+      <div class="field">
+        <label>Description</label>
+        <input type="text" id="version-desc" placeholder="e.g. Added API documentation">
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" onclick="doSnapshot()">
+          <span class="spinner"></span>
+          <span class="btn-text">Create Snapshot</span>
+        </button>
+        <button class="btn btn-secondary" onclick="loadVersions()">Refresh List</button>
+      </div>
+      <div class="version-list" id="version-list"></div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT PANEL: Results -->
+  <div class="panel panel-right">
+    <div class="panel-header"><div class="dot" style="background:var(--accent3);box-shadow:0 0 8px var(--accent3);"></div> Response</div>
+    <div id="result-area">
+      <div class="result-box" style="color:var(--text-dim);text-align:center;padding:60px 20px;">
+        Execute a command to see results here.
+      </div>
+    </div>
+    <canvas id="graphCanvas" style="display:none;"></canvas>
+    <div class="graph-legend" id="graph-legend" style="display:none;">
+      <span><span class="swatch" style="background:#4af0c0;"></span> Entity</span>
+      <span><span class="swatch" style="background:#f07a4a;"></span> TextChunk</span>
+      <span><span class="swatch" style="background:#7a4af0;"></span> Trace</span>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span class="status-dot"></span>
+  <span>GraphRAG MCP Server</span>
+  <span id="status-info">Ready</span>
+</div>
+
+<script>
+// --- Tab switching ---
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// --- API helpers ---
+const API = '/api';
+
+async function apiCall(endpoint, method, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API + endpoint, opts);
+  return res.json();
+}
+
+function setStatus(msg) {
+  document.getElementById('status-info').textContent = msg;
+}
+
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+function setLoading(btn, loading) {
+  btn.classList.toggle('loading', loading);
+  btn.disabled = loading;
+}
+
+function showResult(data, isError = false) {
+  const area = document.getElementById('result-area');
+  const json = JSON.stringify(data, null, 2);
+  area.innerHTML = `<div class="result-box fade-in ${isError ? 'error' : 'success'}">${escapeHtml(json)}</div>`;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// --- Ingest ---
+async function doIngest() {
+  const btn = event.target.closest('.btn');
+  setLoading(btn, true);
+  setStatus('Ingesting...');
+  try {
+    const data = await apiCall('/ingest', 'POST', {
+      text: document.getElementById('ingest-text').value,
+      source: document.getElementById('ingest-source').value,
+      domain: document.getElementById('ingest-domain').value
+    });
+    showResult(data, !!data.error);
+    if (!data.error) toast(`Ingested ${data.chunks_created} chunks, ${data.entities_extracted} entities`);
+    else toast(data.error, 'error');
+  } catch (e) {
+    showResult({ error: e.message }, true);
+    toast(e.message, 'error');
+  }
+  setLoading(btn, false);
+  setStatus('Ready');
+}
+
+// --- Search ---
+async function doSearch() {
+  const btn = event.target.closest('.btn');
+  setLoading(btn, true);
+  setStatus('Searching...');
+  try {
+    const data = await apiCall('/search', 'POST', {
+      query: document.getElementById('search-query').value,
+      top_k: parseInt(document.getElementById('search-topk').value)
+    });
+
+    const area = document.getElementById('result-area');
+    let html = '';
+
+    if (data.textContext) {
+      html += `<div class="result-text fade-in">${escapeHtml(data.textContext)}</div>`;
+    }
+
+    html += `<div class="result-box fade-in success">${escapeHtml(JSON.stringify({nodes: data.nodes, edges: data.edges}, null, 2))}</div>`;
+    area.innerHTML = html;
+
+    if (data.nodes && data.nodes.length > 0) {
+      drawGraph(data.nodes, data.edges || []);
+      toast(`Found ${data.nodes.length} nodes, ${(data.edges||[]).length} edges`);
+    } else {
+      hideGraph();
+      toast('No results found', 'error');
+    }
+  } catch (e) {
+    showResult({ error: e.message }, true);
+    toast(e.message, 'error');
+  }
+  setLoading(btn, false);
+  setStatus('Ready');
+}
+
+// --- Traverse ---
+async function doTraverse() {
+  const btn = event.target.closest('.btn');
+  setLoading(btn, true);
+  setStatus('Traversing graph...');
+  try {
+    const keywords = document.getElementById('traverse-keywords').value.split(',').map(s => s.trim()).filter(Boolean);
+    const data = await apiCall('/traverse', 'POST', {
+      keywords,
+      algorithm: document.getElementById('traverse-algo').value,
+      semantic_stop: document.getElementById('traverse-stop').value || null
+    });
+
+    showResult(data);
+
+    if (data.nodes && data.nodes.length > 0) {
+      drawGraph(data.nodes, data.edges || []);
+      toast(`${data.paths?.length || 0} paths, ${data.nodes.length} nodes`);
+    } else {
+      hideGraph();
+      if (data.warnings?.length) toast(data.warnings[0], 'error');
+    }
+  } catch (e) {
+    showResult({ error: e.message }, true);
+    toast(e.message, 'error');
+  }
+  setLoading(btn, false);
+  setStatus('Ready');
+}
+
+// --- Trace ---
+async function doTrace() {
+  const btn = event.target.closest('.btn');
+  setLoading(btn, true);
+  setStatus('Recording trace...');
+  try {
+    let steps;
+    try { steps = JSON.parse(document.getElementById('trace-steps').value); }
+    catch { throw new Error('Invalid JSON in steps field'); }
+
+    const data = await apiCall('/trace', 'POST', {
+      trace_id: document.getElementById('trace-id').value,
+      task_description: document.getElementById('trace-task').value,
+      agent_persona: document.getElementById('trace-persona').value,
+      steps,
+      successful: document.getElementById('trace-success').value === 'true'
+    });
+    showResult(data);
+    toast('Trace recorded: ' + data.trace_id);
+  } catch (e) {
+    showResult({ error: e.message }, true);
+    toast(e.message, 'error');
+  }
+  setLoading(btn, false);
+  setStatus('Ready');
+}
+
+// --- Versions ---
+async function doSnapshot() {
+  const btn = event.target.closest('.btn');
+  setLoading(btn, true);
+  setStatus('Creating snapshot...');
+  try {
+    const data = await apiCall('/versions/snapshot', 'POST', {
+      version_name: document.getElementById('version-name').value,
+      description: document.getElementById('version-desc').value
+    });
+    showResult(data, !!data.error);
+    if (!data.error) {
+      toast('Snapshot created: ' + data.version);
+      loadVersions();
+    }
+  } catch (e) {
+    showResult({ error: e.message }, true);
+    toast(e.message, 'error');
+  }
+  setLoading(btn, false);
+  setStatus('Ready');
+}
+
+async function loadVersions() {
+  try {
+    const versions = await apiCall('/versions', 'GET');
+    const list = document.getElementById('version-list');
+    if (!versions.length) {
+      list.innerHTML = '<div style="color:var(--text-dim);font-size:12px;padding:16px 0;">No snapshots yet.</div>';
+      return;
+    }
+    list.innerHTML = versions.map(v =>
+      `<div class="version-card fade-in">
+        <span class="v-name">${escapeHtml(v)}</span>
+        <span class="v-meta">snapshot</span>
+      </div>`
+    ).join('');
+  } catch (e) {
+    console.error('Failed to load versions:', e);
+  }
+}
+
+// --- Graph visualization (simple force-directed on canvas) ---
+function hideGraph() {
+  document.getElementById('graphCanvas').style.display = 'none';
+  document.getElementById('graph-legend').style.display = 'none';
+}
+
+function drawGraph(nodes, edges) {
+  const canvas = document.getElementById('graphCanvas');
+  canvas.style.display = 'block';
+  document.getElementById('graph-legend').style.display = 'flex';
+
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth;
+  const H = canvas.offsetHeight;
+  canvas.width = W * 2;
+  canvas.height = H * 2;
+  ctx.scale(2, 2);
+
+  const colorMap = {
+    'Entity': '#4af0c0',
+    'TextChunk': '#f07a4a',
+    'ExecutionTrace': '#7a4af0',
+    'TraceStep': '#f0d04a'
+  };
+
+  // Build node map
+  const nodeMap = {};
+  const gNodes = nodes.map((n, i) => {
+    const angle = (2 * Math.PI * i) / nodes.length;
+    const r = Math.min(W, H) * 0.3;
+    const node = {
+      ...n,
+      x: W/2 + r * Math.cos(angle) + (Math.random() - 0.5) * 40,
+      y: H/2 + r * Math.sin(angle) + (Math.random() - 0.5) * 40,
+      vx: 0, vy: 0,
+      color: colorMap[n.label] || '#4af0c0'
+    };
+    nodeMap[n.id] = node;
+    return node;
+  });
+
+  const gEdges = edges.filter(e => nodeMap[e.source] && nodeMap[e.target]).map(e => ({
+    ...e,
+    sourceNode: nodeMap[e.source],
+    targetNode: nodeMap[e.target]
+  }));
+
+  // Simple force simulation
+  let frame = 0;
+  function simulate() {
+    // Repulsion
+    for (let i = 0; i < gNodes.length; i++) {
+      for (let j = i + 1; j < gNodes.length; j++) {
+        let dx = gNodes[j].x - gNodes[i].x;
+        let dy = gNodes[j].y - gNodes[i].y;
+        let d = Math.sqrt(dx*dx + dy*dy) || 1;
+        let force = 800 / (d * d);
+        gNodes[i].vx -= dx/d * force;
+        gNodes[i].vy -= dy/d * force;
+        gNodes[j].vx += dx/d * force;
+        gNodes[j].vy += dy/d * force;
+      }
+    }
+
+    // Attraction (edges)
+    for (const e of gEdges) {
+      let dx = e.targetNode.x - e.sourceNode.x;
+      let dy = e.targetNode.y - e.sourceNode.y;
+      let d = Math.sqrt(dx*dx + dy*dy) || 1;
+      let force = (d - 80) * 0.02;
+      e.sourceNode.vx += dx/d * force;
+      e.sourceNode.vy += dy/d * force;
+      e.targetNode.vx -= dx/d * force;
+      e.targetNode.vy -= dy/d * force;
+    }
+
+    // Center gravity
+    for (const n of gNodes) {
+      n.vx += (W/2 - n.x) * 0.005;
+      n.vy += (H/2 - n.y) * 0.005;
+      n.vx *= 0.85;
+      n.vy *= 0.85;
+      n.x += n.vx;
+      n.y += n.vy;
+      n.x = Math.max(30, Math.min(W - 30, n.x));
+      n.y = Math.max(30, Math.min(H - 30, n.y));
+    }
+
+    // Draw
+    ctx.clearRect(0, 0, W, H);
+
+    // Edges
+    for (const e of gEdges) {
+      ctx.beginPath();
+      ctx.moveTo(e.sourceNode.x, e.sourceNode.y);
+      ctx.lineTo(e.targetNode.x, e.targetNode.y);
+      ctx.strokeStyle = 'rgba(74, 240, 192, 0.15)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Edge label
+      const mx = (e.sourceNode.x + e.targetNode.x) / 2;
+      const my = (e.sourceNode.y + e.targetNode.y) / 2;
+      if (e.relationship || e.label) {
+        ctx.fillStyle = 'rgba(107, 112, 128, 0.6)';
+        ctx.font = '9px JetBrains Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText(e.relationship || e.label, mx, my - 4);
+      }
+    }
+
+    // Nodes
+    for (const n of gNodes) {
+      // Glow
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, 14, 0, Math.PI * 2);
+      ctx.fillStyle = n.color + '15';
+      ctx.fill();
+
+      // Circle
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, 8, 0, Math.PI * 2);
+      ctx.fillStyle = n.color;
+      ctx.fill();
+
+      // Label
+      const label = n.name || n.chunkId || n.traceId || n.label;
+      if (label) {
+        ctx.fillStyle = '#c8ccd4';
+        ctx.font = '10px JetBrains Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText(label.substring(0, 20), n.x, n.y + 22);
+      }
+    }
+
+    frame++;
+    if (frame < 120) requestAnimationFrame(simulate);
+  }
+
+  simulate();
+}
+
+// --- Init ---
+document.addEventListener('DOMContentLoaded', () => {
+  loadVersions();
+  // Show active version
+  fetch('/api/versions').then(r => r.json()).then(v => {
+    document.getElementById('activeVersion').textContent = 'active: v1';
+  }).catch(() => {
+    document.getElementById('activeVersion').textContent = 'sse mode';
+  });
+});
+</script>
+
+</body>
+</html>
