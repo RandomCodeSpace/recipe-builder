@@ -4,6 +4,7 @@ import com.graphrag.config.GraphRagProperties;
 import com.graphrag.model.*;
 import com.graphrag.repository.GraphRepository;
 import com.graphrag.repository.VectorRepository;
+import com.graphrag.service.EntityNormalizer;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.Response;
@@ -33,7 +34,7 @@ class GraphGenerationServiceTest {
     void setUp() {
         graph = TinkerGraph.open();
         GraphTraversalSource g = traversal().withEmbedded(graph);
-        graphRepo = new GraphRepository(g);
+        graphRepo = new GraphRepository(g, new EntityNormalizer(), 0.85);
         vectorRepo = new VectorRepository(new InMemoryEmbeddingStore<>());
         embeddingModel = mock(EmbeddingModel.class);
 

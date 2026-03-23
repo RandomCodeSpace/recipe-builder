@@ -2,6 +2,7 @@ package com.graphrag.service;
 
 import com.graphrag.model.TraversalResult;
 import com.graphrag.repository.GraphRepository;
+import com.graphrag.service.EntityNormalizer;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerGraph;
 import org.junit.jupiter.api.*;
@@ -19,7 +20,7 @@ class GraphTraversalServiceTest {
     void setUp() {
         graph = TinkerGraph.open();
         GraphTraversalSource g = traversal().withEmbedded(graph);
-        graphRepo = new GraphRepository(g);
+        graphRepo = new GraphRepository(g, new EntityNormalizer(), 0.85);
         service = new GraphTraversalService(graphRepo);
 
         // Build test graph: A -> B -> C -> D, A -> E -> D

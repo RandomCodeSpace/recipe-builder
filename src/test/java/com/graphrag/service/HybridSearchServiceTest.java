@@ -3,6 +3,7 @@ package com.graphrag.service;
 import com.graphrag.model.SearchResult;
 import com.graphrag.repository.GraphRepository;
 import com.graphrag.repository.VectorRepository;
+import com.graphrag.service.EntityNormalizer;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -28,7 +29,7 @@ class HybridSearchServiceTest {
     void setUp() {
         graph = TinkerGraph.open();
         GraphTraversalSource g = traversal().withEmbedded(graph);
-        graphRepo = new GraphRepository(g);
+        graphRepo = new GraphRepository(g, new EntityNormalizer(), 0.85);
         vectorRepo = new VectorRepository(new InMemoryEmbeddingStore<>());
         embeddingModel = mock(EmbeddingModel.class);
 

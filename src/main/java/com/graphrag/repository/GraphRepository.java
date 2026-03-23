@@ -1,9 +1,13 @@
 package com.graphrag.repository;
 
 import com.graphrag.model.SearchResult;
+import com.graphrag.service.EntityNormalizer;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -13,16 +17,42 @@ import java.util.stream.Collectors;
 @Repository
 public class GraphRepository {
 
-    private final GraphTraversalSource g;
+    private static final Logger log = LoggerFactory.getLogger(GraphRepository.class);
 
-    public GraphRepository(GraphTraversalSource g) {
+    private final GraphTraversalSource g;
+    private final EntityNormalizer normalizer;
+    private final double similarityThreshold;
+
+    public GraphRepository(GraphTraversalSource g,
+                           EntityNormalizer normalizer,
+                           @Value("${graphrag.dedup.similarity-threshold:0.85}") double similarityThreshold) {
         this.g = g;
+        this.normalizer = normalizer;
+        this.similarityThreshold = similarityThreshold;
     }
 
     public void addEntity(String name, String type, String domain) {
-        if (g.V().hasLabel("Entity").has("name", name).hasNext()) return;
+        String normalized = normalizer.normalize(name);
+
+        // Fast path: exact match on normalizedName
+        if (g.V().hasLabel("Entity").has("normalizedName", normalized).hasNext()) return;
+
+        // Similarity scan over existing Entity vertices
+        List<Vertex> allEntities = g.V().hasLabel("Entity").toList();
+        for (Vertex existing : allEntities) {
+            if (!existing.property("normalizedName").isPresent()) continue;
+            String existingNormalized = (String) existing.property("normalizedName").value();
+            if (normalizer.similarity(normalized, existingNormalized) > similarityThreshold) {
+                log.info("Deduplicating entity '{}' — merged with existing '{}'",
+                        name, existing.property("name").value());
+                return;
+            }
+        }
+
+        // No match found — create new vertex
         g.addV("Entity")
                 .property("name", name)
+                .property("normalizedName", normalized)
                 .property("type", type)
                 .property("domain", domain)
                 .property("createdAt", Instant.now().toString())

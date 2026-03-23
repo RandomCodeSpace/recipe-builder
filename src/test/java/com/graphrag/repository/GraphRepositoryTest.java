@@ -1,5 +1,6 @@
 package com.graphrag.repository;
 
+import com.graphrag.service.EntityNormalizer;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerGraph;
 import org.junit.jupiter.api.*;
@@ -18,7 +19,7 @@ class GraphRepositoryTest {
     void setUp() {
         graph = TinkerGraph.open();
         g = traversal().withEmbedded(graph);
-        repo = new GraphRepository(g);
+        repo = new GraphRepository(g, new EntityNormalizer(), 0.85);
     }
 
     @AfterEach
@@ -182,5 +183,30 @@ class GraphRepositoryTest {
         var result = repo.getSubgraphByChunkIds(List.of());
         assertThat(result.nodes()).isEmpty();
         assertThat(result.edges()).isEmpty();
+    }
+
+    @Test
+    void addEntityDeduplicatesNearMatches() {
+        repo.addEntity("Spring Boot", "framework", "codebase");
+        repo.addEntity("SpringBoot", "framework", "codebase");
+        // "spring boot" vs "springboot" have similarity > 0.85 so second should be deduplicated
+        long count = g.V().hasLabel("Entity").count().next();
+        assertThat(count).isEqualTo(1L);
+    }
+
+    @Test
+    void addEntityPreservesOriginalName() {
+        repo.addEntity("Spring Boot", "framework", "codebase");
+        var v = g.V().hasLabel("Entity").has("normalizedName", "spring boot").next();
+        assertThat(v.property("name").value()).isEqualTo("Spring Boot");
+        assertThat(v.property("normalizedName").value()).isEqualTo("spring boot");
+    }
+
+    @Test
+    void addEntityAllowsDifferentEntities() {
+        repo.addEntity("Java", "technology", "codebase");
+        repo.addEntity("Python", "technology", "codebase");
+        long count = g.V().hasLabel("Entity").count().next();
+        assertThat(count).isEqualTo(2L);
     }
 }

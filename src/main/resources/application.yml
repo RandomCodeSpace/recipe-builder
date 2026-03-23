@@ -25,5 +25,7 @@ graphrag:
     persistence-path: ./data/graph.json
   persistence:
     interval-ms: 300000
+  dedup:
+    similarity-threshold: 0.85
   trace:
     similarity-threshold: 0.7

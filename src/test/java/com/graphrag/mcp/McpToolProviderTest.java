@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.graphrag.repository.GraphRepository;
 import com.graphrag.repository.VectorRepository;
 import com.graphrag.service.*;
+import com.graphrag.service.EntityNormalizer;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -35,7 +36,7 @@ class McpToolProviderTest {
     void setUp() {
         graph = TinkerGraph.open();
         GraphTraversalSource g = traversal().withEmbedded(graph);
-        graphRepo = new GraphRepository(g);
+        graphRepo = new GraphRepository(g, new EntityNormalizer(), 0.85);
         var vectorRepo = new VectorRepository(new InMemoryEmbeddingStore<>());
         var embeddingModel = mock(EmbeddingModel.class);
         float[] dummyVector = new float[384];
@@ -154,7 +155,7 @@ class McpToolProviderTest {
     void handleIngestTextReturnsErrorForTooLongText() {
         // Create provider with small limit
         TinkerGraph localGraph = TinkerGraph.open();
-        var graphRepoLocal = new GraphRepository(traversal().withEmbedded(localGraph));
+        var graphRepoLocal = new GraphRepository(traversal().withEmbedded(localGraph), new EntityNormalizer(), 0.85);
         var vectorRepo = new VectorRepository(new InMemoryEmbeddingStore<>());
         var embeddingModel = mock(EmbeddingModel.class);
         when(embeddingModel.embed(anyString())).thenReturn(Response.from(Embedding.from(new float[384])));
