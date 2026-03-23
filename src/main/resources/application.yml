@@ -20,6 +20,9 @@ graphrag:
       deployment-name: ${AZURE_OPENAI_EMBEDDING_DEPLOYMENT:text-embedding-3-small}
   ingest:
     max-text-length: 100000
+  extraction:
+    confidence-threshold: 0.6
+    max-retries: 2
   vector-store:
     persistence-path: ./data/versions/${graphrag.version}/vector-store.json
   graph:

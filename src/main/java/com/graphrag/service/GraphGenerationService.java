@@ -28,14 +28,19 @@ public class GraphGenerationService {
     private final TextChunker textChunker;
     private final EntityRelationshipExtractor extractor;
     private final int maxTextLength;
+    private final ExtractionValidator validator;
+    private final double confidenceThreshold;
+    private final int maxRetries;
 
     @Autowired(required = false)
     private AuditService auditService;
 
     interface EntityRelationshipExtractor {
         @UserMessage("""
-            Extract all named entities and their relationships from the following text.
-            Return only entities that are specific nouns (people, technologies, concepts, organizations).
+            Extract named entities and relationships from the following text.
+            Entity types: person, organization, technology, concept, location, document.
+            For each entity and relationship, provide a confidence score between 0.0 and 1.0.
+            Only include entities with confidence >= 0.5.
 
             Text: {{text}}
             """)
@@ -49,11 +54,28 @@ public class GraphGenerationService {
             TextChunker textChunker,
             ChatLanguageModel chatModel,
             @Value("${graphrag.ingest.max-text-length:100000}") int maxTextLength) {
+        this(graphRepo, vectorRepo, embeddingModel, textChunker, chatModel, maxTextLength,
+                new ExtractionValidator(), 0.6, 2);
+    }
+
+    public GraphGenerationService(
+            GraphRepository graphRepo,
+            VectorRepository vectorRepo,
+            EmbeddingModel embeddingModel,
+            TextChunker textChunker,
+            ChatLanguageModel chatModel,
+            @Value("${graphrag.ingest.max-text-length:100000}") int maxTextLength,
+            ExtractionValidator validator,
+            @Value("${graphrag.extraction.confidence-threshold:0.6}") double confidenceThreshold,
+            @Value("${graphrag.extraction.max-retries:2}") int maxRetries) {
         this.graphRepo = graphRepo;
         this.vectorRepo = vectorRepo;
         this.embeddingModel = embeddingModel;
         this.textChunker = textChunker;
         this.maxTextLength = maxTextLength;
+        this.validator = validator;
+        this.confidenceThreshold = confidenceThreshold;
+        this.maxRetries = maxRetries;
 
         if (chatModel != null) {
             this.extractor = AiServices.create(EntityRelationshipExtractor.class, chatModel);
@@ -84,12 +106,22 @@ public class GraphGenerationService {
 
             // Extract entities via LLM
             if (extractor != null) {
-                try {
-                    ExtractionResult result = extractor.extract(chunk.content());
+                ExtractionResult result = null;
+                for (int attempt = 0; attempt <= maxRetries; attempt++) {
+                    try {
+                        result = extractor.extract(chunk.content());
+                        break;
+                    } catch (Exception e) {
+                        if (attempt == maxRetries) {
+                            log.warn("LLM extraction failed for chunk {} after {} retries: {}",
+                                    chunk.chunkId(), maxRetries + 1, e.getMessage());
+                        }
+                    }
+                }
+                if (result != null) {
+                    result = validator.filter(result, confidenceThreshold);
                     entitiesCount += processExtraction(result, chunk.chunkId(), domain);
                     relationshipsCount += result.relationships().size();
-                } catch (Exception e) {
-                    log.warn("LLM extraction failed for chunk {}: {}", chunk.chunkId(), e.getMessage());
                 }
             }
         }
