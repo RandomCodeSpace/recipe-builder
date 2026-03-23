@@ -94,35 +94,43 @@ public class GraphGenerationService {
             return Map.of("error", "Text exceeds maximum length of " + maxTextLength + " characters");
         }
 
-        List<TextChunk> chunks = textChunker.chunk(text, source, domain);
         int entitiesCount = 0;
         int relationshipsCount = 0;
         List<String> chunkIds = new ArrayList<>();
 
-        for (TextChunk chunk : chunks) {
-            chunkIds.add(chunk.chunkId());
+        // For codebase domain: treat entire file as one chunk + parse AST on full content
+        if ("codebase".equals(domain) && codeParsingService != null) {
+            String chunkId = java.util.UUID.randomUUID().toString();
+            chunkIds.add(chunkId);
 
-            // Embed and store in vector repo
-            Embedding embedding = embeddingModel.embed(chunk.content()).content();
-            vectorRepo.store(chunk.chunkId(), chunk.content(), embedding, source, domain);
+            // Embed whole file as one chunk
+            Embedding embedding = embeddingModel.embed(text).content();
+            vectorRepo.store(chunkId, text, embedding, source, domain);
+            graphRepo.addTextChunkNode(chunkId, text, source, domain);
 
-            // Store text chunk node in graph
-            graphRepo.addTextChunkNode(chunk.chunkId(), chunk.content(), source, domain);
+            // AST parse the complete file (not broken chunks)
+            ExtractionResult result = codeParsingService.parseCode(text, source);
+            result = validator.filter(result, confidenceThreshold);
+            entitiesCount += processExtraction(result, chunkId, domain);
+            relationshipsCount += result.relationships().size();
+        } else {
+            // For document/recipe/reference: paragraph chunking + LLM extraction
+            List<TextChunk> chunks = textChunker.chunk(text, source, domain);
 
-            // Extract entities via AST (codebase domain) or LLM (other domains)
-            if ("codebase".equals(domain) && codeParsingService != null) {
-                // AST-based extraction for code — no LLM needed
-                ExtractionResult result = codeParsingService.parseCode(chunk.content(), source);
-                result = validator.filter(result, confidenceThreshold);
-                entitiesCount += processExtraction(result, chunk.chunkId(), domain);
-                relationshipsCount += result.relationships().size();
-            } else if (chatModel != null) {
-                // LLM extraction for document/recipe/reference
-                ExtractionResult result = extractWithRetry(chunk.content(), chunk.chunkId());
-                if (result != null) {
-                    result = validator.filter(result, confidenceThreshold);
-                    entitiesCount += processExtraction(result, chunk.chunkId(), domain);
-                    relationshipsCount += result.relationships().size();
+            for (TextChunk chunk : chunks) {
+                chunkIds.add(chunk.chunkId());
+
+                Embedding embedding = embeddingModel.embed(chunk.content()).content();
+                vectorRepo.store(chunk.chunkId(), chunk.content(), embedding, source, domain);
+                graphRepo.addTextChunkNode(chunk.chunkId(), chunk.content(), source, domain);
+
+                if (chatModel != null) {
+                    ExtractionResult result = extractWithRetry(chunk.content(), chunk.chunkId());
+                    if (result != null) {
+                        result = validator.filter(result, confidenceThreshold);
+                        entitiesCount += processExtraction(result, chunk.chunkId(), domain);
+                        relationshipsCount += result.relationships().size();
+                    }
                 }
             }
         }
@@ -132,7 +140,7 @@ public class GraphGenerationService {
         }
 
         return Map.of(
-                "chunks_created", chunks.size(),
+                "chunks_created", chunkIds.size(),
                 "entities_extracted", entitiesCount,
                 "relationships_extracted", relationshipsCount,
                 "chunk_ids", chunkIds);
