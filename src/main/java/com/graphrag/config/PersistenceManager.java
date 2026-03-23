@@ -39,7 +39,7 @@ public class PersistenceManager {
     }
 
     @PreDestroy
-    public void persistAll() {
+    public synchronized void persistAll() {
         persistGraph();
         persistVectorStore();
     }
