@@ -44,4 +44,28 @@ class TextChunkerTest {
         assertThat(chunks.get(0).source()).isEqualTo("myfile.java");
         assertThat(chunks.get(0).domain()).isEqualTo("codebase");
     }
+
+    @Test
+    void splitsLargeTextExceedingMaxChunkSize() {
+        // Create text larger than MAX_CHUNK_CHARS with no double newlines
+        String largeText = "word ".repeat(2000); // ~10000 chars, well over 6000 limit
+        List<TextChunk> chunks = chunker.chunk(largeText, "big.txt", "document");
+        assertThat(chunks.size()).isGreaterThan(1);
+        for (TextChunk chunk : chunks) {
+            assertThat(chunk.content().length()).isLessThanOrEqualTo(TextChunker.MAX_CHUNK_CHARS);
+        }
+    }
+
+    @Test
+    void largeTextWithNoBreakPointsStillChunks() {
+        // Continuous text with no spaces/newlines — forces hard cuts
+        String largeText = "x".repeat(TextChunker.MAX_CHUNK_CHARS * 2);
+        List<TextChunk> chunks = chunker.chunk(largeText, "src.java", "codebase");
+        assertThat(chunks.size()).isGreaterThan(1);
+        for (TextChunk chunk : chunks) {
+            assertThat(chunk.content().length()).isLessThanOrEqualTo(TextChunker.MAX_CHUNK_CHARS);
+            assertThat(chunk.source()).isEqualTo("src.java");
+            assertThat(chunk.domain()).isEqualTo("codebase");
+        }
+    }
 }
