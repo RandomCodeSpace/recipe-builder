@@ -5,6 +5,7 @@ import com.graphrag.model.TraceStep;
 import com.graphrag.service.*;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -19,23 +20,33 @@ public class SimulationController {
     private final GraphTraversalService graphTraversalService;
     private final ExecutionTraceService executionTraceService;
     private final VersionService versionService;
+    private final FileIngestionService fileIngestionService;
 
     public SimulationController(GraphGenerationService graphGenerationService,
                                  HybridSearchService hybridSearchService,
                                  GraphTraversalService graphTraversalService,
                                  ExecutionTraceService executionTraceService,
-                                 VersionService versionService) {
+                                 VersionService versionService,
+                                 FileIngestionService fileIngestionService) {
         this.graphGenerationService = graphGenerationService;
         this.hybridSearchService = hybridSearchService;
         this.graphTraversalService = graphTraversalService;
         this.executionTraceService = executionTraceService;
         this.versionService = versionService;
+        this.fileIngestionService = fileIngestionService;
     }
 
     @PostMapping("/ingest")
     public Map<String, Object> ingest(@RequestBody Map<String, String> body) {
         return graphGenerationService.ingest(
                 body.get("text"), body.get("source"), body.get("domain"));
+    }
+
+    @PostMapping("/ingest/upload")
+    public Map<String, Object> ingestUpload(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("domain") String domain) {
+        return fileIngestionService.ingestFile(file, domain);
     }
 
     @PostMapping("/search")

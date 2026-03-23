@@ -390,6 +390,50 @@ body::before {
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 
+/* Drop zone */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  margin-bottom: 16px;
+}
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+.drop-zone-link { color: var(--accent); text-decoration: underline; cursor: pointer; }
+.drop-zone-hint { font-size: 11px; color: var(--text-dim); margin-top: 8px; }
+.drop-zone-file { color: var(--accent); font-weight: 500; }
+
+.input-toggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.input-toggle button {
+  flex: 1;
+  padding: 8px 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--bg-input);
+  color: var(--text-dim);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.input-toggle button.active {
+  background: var(--accent);
+  color: var(--bg);
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
@@ -475,30 +519,57 @@ body::before {
     <!-- INGEST TAB -->
     <div class="tab-content active" id="tab-ingest">
       <div class="panel-header"><div class="dot"></div> Ingest Document</div>
+
       <div class="field">
-        <label>Text Content</label>
-        <textarea id="ingest-text" placeholder="Paste document text here...
+        <label>Domain</label>
+        <select id="ingest-domain" onchange="onDomainChange()">
+          <option value="codebase">Codebase</option>
+          <option value="document" selected>Document</option>
+          <option value="recipe">Recipe</option>
+          <option value="reference">Reference</option>
+        </select>
+      </div>
+
+      <!-- Toggle: only shown for document/recipe -->
+      <div class="input-toggle" id="ingest-toggle">
+        <button id="toggle-file-btn" class="active" onclick="setIngestMode('file')">File Upload</button>
+        <button id="toggle-text-btn" onclick="setIngestMode('text')">Free Text</button>
+      </div>
+
+      <!-- File upload zone -->
+      <div id="ingest-file-section">
+        <div class="drop-zone" id="drop-zone"
+             onclick="document.getElementById('file-input').click()"
+             ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+          <input type="file" id="file-input"
+                 accept=".txt,.md,.json,.yaml,.yml,.java,.py,.js,.ts,.zip"
+                 hidden onchange="onFileSelected(this.files[0])">
+          <div class="drop-zone-text" id="drop-zone-text">
+            <div style="font-size:24px;margin-bottom:8px;">&#8593;</div>
+            <div>Drop file here or <span class="drop-zone-link">browse</span></div>
+            <div class="drop-zone-hint" id="drop-zone-hint">Supports .txt, .md, .json, code files, and .zip archives</div>
+          </div>
+          <div class="drop-zone-file" id="selected-file" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Free text section -->
+      <div id="ingest-text-section" style="display:none;">
+        <div class="field">
+          <label>Text Content</label>
+          <textarea id="ingest-text" placeholder="Paste document text here...
 
 Separate paragraphs with blank lines for chunking."></textarea>
-      </div>
-      <div class="row">
+        </div>
         <div class="field">
           <label>Source</label>
           <input type="text" id="ingest-source" placeholder="e.g. architecture.md">
         </div>
-        <div class="field">
-          <label>Domain</label>
-          <select id="ingest-domain">
-            <option value="codebase">Codebase</option>
-            <option value="document" selected>Document</option>
-            <option value="recipe">Recipe</option>
-            <option value="reference">Reference</option>
-          </select>
-        </div>
       </div>
+
       <button class="btn btn-primary" onclick="doIngest()">
         <span class="spinner"></span>
-        <span class="btn-text">Ingest Text</span>
+        <span class="btn-text">Ingest</span>
       </button>
     </div>
 
@@ -677,26 +748,142 @@ function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// --- Ingest mode state ---
+let ingestMode = 'file'; // 'file' or 'text'
+let selectedFile = null;
+
+function setIngestMode(mode) {
+  ingestMode = mode;
+  document.getElementById('toggle-file-btn').classList.toggle('active', mode === 'file');
+  document.getElementById('toggle-text-btn').classList.toggle('active', mode === 'text');
+  document.getElementById('ingest-file-section').style.display = mode === 'file' ? 'block' : 'none';
+  document.getElementById('ingest-text-section').style.display = mode === 'text' ? 'block' : 'none';
+}
+
+function onDomainChange() {
+  const domain = document.getElementById('ingest-domain').value;
+  const toggle = document.getElementById('ingest-toggle');
+  const hint = document.getElementById('drop-zone-hint');
+
+  if (domain === 'codebase') {
+    // ZIP only
+    toggle.style.display = 'none';
+    setIngestMode('file');
+    document.getElementById('file-input').accept = '.zip';
+    hint.textContent = 'ZIP archive of code files required';
+  } else if (domain === 'reference') {
+    // File only (single or ZIP), no text option
+    toggle.style.display = 'none';
+    setIngestMode('file');
+    document.getElementById('file-input').accept = '.txt,.md,.json,.yaml,.yml,.java,.py,.js,.ts,.zip';
+    hint.textContent = 'Supports .txt, .md, .json, code files, and .zip archives';
+  } else {
+    // document / recipe: toggle between file and text
+    toggle.style.display = 'flex';
+    document.getElementById('file-input').accept = '.txt,.md,.json,.yaml,.yml,.java,.py,.js,.ts,.zip';
+    hint.textContent = 'Supports .txt, .md, .json, code files, and .zip archives';
+  }
+  // Reset file selection on domain change
+  selectedFile = null;
+  document.getElementById('selected-file').style.display = 'none';
+  document.getElementById('drop-zone-text').style.display = 'block';
+}
+
+function onFileSelected(file) {
+  if (!file) return;
+  selectedFile = file;
+  document.getElementById('selected-file').textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+  document.getElementById('selected-file').style.display = 'block';
+  document.getElementById('drop-zone-text').style.display = 'none';
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.add('dragover');
+}
+
+function onDragLeave(e) {
+  document.getElementById('drop-zone').classList.remove('dragover');
+}
+
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) onFileSelected(file);
+}
+
 // --- Ingest ---
 async function doIngest() {
   const btn = event.target.closest('.btn');
+  const domain = document.getElementById('ingest-domain').value;
   setLoading(btn, true);
   setStatus('Ingesting...');
   try {
-    const data = await apiCall('/ingest', 'POST', {
-      text: document.getElementById('ingest-text').value,
-      source: document.getElementById('ingest-source').value,
-      domain: document.getElementById('ingest-domain').value
-    });
-    showResult(data, !!data.error);
-    if (!data.error) toast(`Ingested ${data.chunks_created} chunks, ${data.entities_extracted} entities`);
-    else toast(data.error, 'error');
+    if (ingestMode === 'file') {
+      if (!selectedFile) {
+        toast('Please select a file first', 'error');
+        setLoading(btn, false);
+        setStatus('Ready');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('domain', domain);
+      const res = await fetch(API + '/ingest/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      showResult(data, !!data.error);
+      if (!data.error) {
+        if (data.files_processed !== undefined) {
+          toast(`Processed ${data.files_processed} files, ${data.total_chunks_created} chunks`);
+          showZipResult(data);
+        } else {
+          toast(`Ingested ${data.chunks_created} chunks, ${data.entities_extracted} entities`);
+        }
+      } else {
+        toast(data.error, 'error');
+      }
+    } else {
+      const data = await apiCall('/ingest', 'POST', {
+        text: document.getElementById('ingest-text').value,
+        source: document.getElementById('ingest-source').value,
+        domain
+      });
+      showResult(data, !!data.error);
+      if (!data.error) toast(`Ingested ${data.chunks_created} chunks, ${data.entities_extracted} entities`);
+      else toast(data.error, 'error');
+    }
   } catch (e) {
     showResult({ error: e.message }, true);
     toast(e.message, 'error');
   }
   setLoading(btn, false);
   setStatus('Ready');
+}
+
+function showZipResult(data) {
+  const area = document.getElementById('result-area');
+  const details = (data.file_details || []).map(f => {
+    const icon = f.status === 'ok' ? '&#10003;' : '&#10007;';
+    const color = f.status === 'ok' ? 'var(--success)' : 'var(--danger)';
+    const extra = f.chunks !== undefined ? ` (${f.chunks} chunks)` : (f.message ? `: ${f.message}` : '');
+    return `<div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:12px;">
+      <span style="color:${color};margin-right:8px;">${icon}</span>
+      <span style="color:var(--text-bright);">${escapeHtml(f.file)}</span>
+      <span style="color:var(--text-dim);">${escapeHtml(extra)}</span>
+    </div>`;
+  }).join('');
+
+  area.innerHTML = `
+    <div class="result-box fade-in success" style="margin-bottom:12px;">
+      <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:12px;">
+        <span>Files processed: <strong style="color:var(--success)">${data.files_processed}</strong></span>
+        <span>Files skipped: <strong style="color:var(--text-dim)">${data.files_skipped}</strong></span>
+        <span>Total chunks: <strong style="color:var(--accent)">${data.total_chunks_created}</strong></span>
+        <span>Entities: <strong style="color:var(--accent3)">${data.total_entities_extracted}</strong></span>
+      </div>
+      <div>${details}</div>
+    </div>`;
 }
 
 // --- Search ---
